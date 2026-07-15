@@ -1,6 +1,6 @@
 ---
 name: human20-kanban
-version: 0.3.0
+version: 0.3.1
 description: "Create Human 2.0 Kanban cards with verified routing."
 author: Михаил + Hughie
 license: MIT
@@ -40,6 +40,19 @@ Before creating any card:
 5. Ask once for all missing fields. Preserve fields already supplied.
 
 Never guess a board, column, assignee, label, deadline, or attachment requirement.
+
+## Clarification message format
+
+When some fields are missing, make the question easy to scan in Telegram:
+
+1. Start with `## Уже определено` and list confirmed values, one field per line.
+2. Add `## Нужно подтвердить` and give every missing field its own numbered block.
+3. Show live options or one proposed value directly under the field name.
+4. End with a one-line reply format the user can copy.
+5. Do not compress several questions into one paragraph separated by commas or semicolons.
+6. Do not repeat fields that the user already confirmed as questions.
+
+Use `templates/reels-card-request.md` for Reels and `templates/card-request.md` for other cards.
 
 ## Required card data
 

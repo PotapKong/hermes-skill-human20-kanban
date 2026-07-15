@@ -32,6 +32,11 @@ if "HUMAN20_KANBAN_API_KEY" not in skill.split("---", 2)[1]:
 for network in ("Instagram", "YouTube", "ВК Видео", "Дзен", "RuTube", "TikTok", "Likee"):
     if network not in skill:
         errors.append(f"missing checklist network: {network}")
+for template_name in ("card-request.md", "reels-card-request.md"):
+    template = (ROOT / "templates" / template_name).read_text(encoding="utf-8")
+    for heading in ("## Уже определено", "## Нужно подтвердить"):
+        if heading not in template:
+            errors.append(f"{template_name} missing readable section: {heading}")
 
 secret_pattern = re.compile(r"kan_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}")
 for path in ROOT.rglob("*"):
