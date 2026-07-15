@@ -4,7 +4,7 @@ Public Hermes skill for creating verified cards in any Human 2.0 team Kanban boa
 
 ## Behavior
 
-The agent first lists every live board and asks the user to choose one unless the request already identifies it unambiguously. It then refreshes the selected board and collects the column, assignee, deadline, labels, and attachment choice.
+The agent first lists every live board and asks the user to choose one unless the request already identifies it unambiguously. It then refreshes the selected board and collects the column, one or more assignees, deadline, labels, and attachment choice.
 
 Reel/Short cards use the **ВИДЕО / МОНТАЖ** specialization: source-video URL, deadline within three days, cover option, and a seven-platform publication checklist.
 

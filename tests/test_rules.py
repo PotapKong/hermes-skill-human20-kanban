@@ -112,6 +112,19 @@ class RulesTest(unittest.TestCase):
         plan = mod.resolve_plan(data, self.board())
         self.assertEqual(plan["checklist"]["items"], mod.SOCIAL_NETWORKS)
 
+    def test_multiple_assignees_are_resolved(self):
+        data = self.base()
+        data["assignee"] = "Михаил / Сергей SRG"
+        checked = mod.validate_request(data, today=date(2026, 7, 15))
+        board = self.board()
+        board["workspace"]["members"].append({
+            "publicId": "ky3ery3tu6e0",
+            "status": "active",
+            "user": {"name": "Сергей SRG"},
+        })
+        plan = mod.resolve_plan(checked, board)
+        self.assertEqual([member["name"] for member in plan["members"]], ["Михаил", "Сергей SRG"])
+
     def test_general_plan_has_no_reels_checklist(self):
         data = self.base()
         data.update({"board": "Marketing", "card_type": "general", "video_url": ""})

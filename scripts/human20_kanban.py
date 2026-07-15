@@ -60,6 +60,17 @@ def is_reels(data: dict[str, Any]) -> bool:
     return str(data.get("card_type") or "").strip().casefold() in {"reels", "reel", "shorts", "short"}
 
 
+def normalize_assignees(value: Any) -> list[str]:
+    if isinstance(value, list):
+        names = [str(item).strip() for item in value]
+    else:
+        names = [item.strip() for item in str(value or "").split("/")]
+    names = [name for name in names if name]
+    if not names:
+        raise ValueError("assignee is required")
+    return names
+
+
 def validate_request(data: dict[str, Any], today: date | None = None) -> dict[str, Any]:
     required = ("board", "title", "assignee", "due_date", "column")
     missing = [key for key in required if not str(data.get(key, "")).strip()]
@@ -100,7 +111,7 @@ def validate_request(data: dict[str, Any], today: date | None = None) -> dict[st
         "board": str(data["board"]).strip(),
         "title": str(data["title"]).strip(),
         "video_url": video_url,
-        "assignee": str(data["assignee"]).strip(),
+        "assignee": normalize_assignees(data["assignee"]),
         "column": str(data["column"]).strip(),
         "due_date": due.isoformat(),
         "labels": [x.strip() for x in labels],
@@ -142,7 +153,10 @@ def resolve_plan(data: dict[str, Any], board: dict[str, Any]) -> dict[str, Any]:
         row = dict(member)
         row["displayName"] = (member.get("user") or {}).get("name") or member.get("email") or ""
         member_rows.append(row)
-    selected_member = _pick_exact(member_rows, "displayName", data["assignee"], "assignee")
+    selected_members = [
+        _pick_exact(member_rows, "displayName", name, "assignee")
+        for name in data["assignee"]
+    ]
 
     board_labels = board.get("labels", [])
     resolved_labels = [_pick_exact(board_labels, "name", name, "label") for name in data.get("labels", [])]
@@ -153,7 +167,10 @@ def resolve_plan(data: dict[str, Any], board: dict[str, Any]) -> dict[str, Any]:
     return {
         "board": {"name": board.get("name"), "publicId": board.get("publicId")},
         "list": {"name": selected_list["name"], "publicId": selected_list["publicId"]},
-        "member": {"name": selected_member["displayName"], "publicId": selected_member["publicId"]},
+        "members": [
+            {"name": member["displayName"], "publicId": member["publicId"]}
+            for member in selected_members
+        ],
         "labels": [{"name": x["name"], "publicId": x["publicId"]} for x in resolved_labels],
         "new_label": data.get("new_label"),
         "attachment_path": data.get("attachment_path"),
@@ -225,7 +242,7 @@ class KanClient:
             "description": plan["description"],
             "listPublicId": plan["list"]["publicId"],
             "labelPublicIds": label_ids,
-            "memberPublicIds": [plan["member"]["publicId"]],
+            "memberPublicIds": [member["publicId"] for member in plan["members"]],
             "position": "end",
             "dueDate": plan["due_date"],
         })

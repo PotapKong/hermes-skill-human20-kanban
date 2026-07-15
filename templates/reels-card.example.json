@@ -4,7 +4,7 @@
   "title": "Название рилса",
   "video_url": "https://example.com/source-video",
   "description": "Короткий контекст без выдуманных деталей.",
-  "assignee": "Михаил",
+  "assignee": ["Михаил", "Сергей SRG"],
   "due_date": "YYYY-MM-DD within the next three days",
   "column": "Монтаж",
   "labels": ["Reels"],

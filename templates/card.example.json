@@ -4,7 +4,7 @@
   "title": "Название задачи",
   "video_url": "",
   "description": "Проверенный контекст задачи.",
-  "assignee": "Михаил",
+  "assignee": ["Михаил"],
   "due_date": "YYYY-MM-DD",
   "column": "В работе",
   "labels": [],

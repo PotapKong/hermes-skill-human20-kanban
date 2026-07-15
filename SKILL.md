@@ -1,6 +1,6 @@
 ---
 name: human20-kanban
-version: 0.2.0
+version: 0.3.0
 description: "Create Human 2.0 Kanban cards with verified routing."
 author: Михаил + Hughie
 license: MIT
@@ -46,7 +46,7 @@ Resolve these fields before creation:
 - title;
 - useful description/context;
 - destination column;
-- assignee from the live member list;
+- one or more assignees from the live member list;
 - deadline;
 - labels: existing, approved new label, or explicitly no labels;
 - attachment: local file, generated asset, or explicitly no attachment.
@@ -58,7 +58,7 @@ Use `templates/card-request.md` when several fields are missing.
 For every board:
 
 - use the confirmed board and column;
-- add at least one confirmed assignee;
+- add every confirmed assignee;
 - set the confirmed deadline;
 - create a new label only after explicit approval of its name and colour;
 - upload an attachment only when requested and verify it by reading the card back;
@@ -70,7 +70,7 @@ A Reel/Short/vertical-video request uses `card_type: reels` and board **ВИДЕ
 
 - Reel title;
 - source-video URL from hosting or Telegram;
-- assignee;
+- assignee or assignees;
 - deadline no later than three calendar days from creation;
 - destination column;
 - labels and whether a new label is needed;
