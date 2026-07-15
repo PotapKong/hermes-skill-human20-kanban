@@ -15,7 +15,7 @@ The skill makes the agent collect the destination column, assignee, deadline, la
 Clone the repository so the skill keeps its templates, references, helper, and tests:
 
 ```bash
-git clone https://github.com/web3blind/hermes-skill-human20-kanban.git
+git clone https://github.com/PotapKong/hermes-skill-human20-kanban.git
 cp -R hermes-skill-human20-kanban ~/.hermes/skills/human20-kanban
 ```
 
