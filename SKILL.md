@@ -1,6 +1,6 @@
 ---
 name: human20-kanban
-version: 0.3.2
+version: 0.4.0
 description: "Create Human 2.0 Kanban cards with verified routing."
 author: Михаил + Hughie
 license: MIT
@@ -93,7 +93,7 @@ A Reel/Short/vertical-video request uses `card_type: reels` and board **ВИДЕ
 - labels and whether a new label is needed;
 - attachment choice, including an offer to generate and attach a cover.
 
-Every Reels card receives checklist `Публикация Shorts/Reels` with exactly:
+For publication-stage Reels cards assigned to **Михаил**, add checklist `Публикация Shorts/Reels` with exactly:
 
 1. Instagram
 2. YouTube
@@ -102,6 +102,13 @@ Every Reels card receives checklist `Публикация Shorts/Reels` with exa
 5. RuTube
 6. TikTok
 7. Likee
+
+Cards routed to `Монтаж` or another production-stage column receive no publication checklist by default. Add it only when:
+
+- the destination is `Передал для подготовки к публикации` or `Готово к публикации` and Михаил is among the assignees; or
+- the user explicitly requests the publication checklist.
+
+An explicit `publication_checklist: false` always suppresses it.
 
 Generate a cover with an applicable cover/image skill or the configured image tool only after the user requests it. Verify the local file, upload it, then verify the attachment on the card.
 

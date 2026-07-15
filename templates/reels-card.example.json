@@ -9,5 +9,6 @@
   "column": "Монтаж",
   "labels": ["Reels"],
   "new_label": null,
+  "publication_checklist": false,
   "attachment_path": null
 }

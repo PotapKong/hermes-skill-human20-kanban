@@ -31,7 +31,10 @@ class RulesTest(unittest.TestCase):
         return {
             "name": name,
             "publicId": board_id or mod.VIDEO_BOARD_PUBLIC_ID,
-            "allLists": [{"name": "Монтаж", "publicId": "6g8bsvtm9yjl"}],
+            "allLists": [
+                {"name": "Монтаж", "publicId": "6g8bsvtm9yjl"},
+                {"name": "Передал для подготовки к публикации", "publicId": "553b64bb64c6"},
+            ],
             "workspace": {"members": [{
                 "publicId": "pfww09rr2cqx",
                 "status": "active",
@@ -107,8 +110,35 @@ class RulesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Reels cards must use"):
             mod.resolve_plan(data, other)
 
-    def test_reels_plan_has_publication_checklist(self):
+    def test_montage_card_has_no_publication_checklist(self):
         data = mod.validate_request(self.base(), today=date(2026, 7, 15))
+        plan = mod.resolve_plan(data, self.board())
+        self.assertIsNone(plan["checklist"])
+
+    def test_mikhail_publication_card_has_publication_checklist(self):
+        raw = self.base()
+        raw["column"] = "Передал для подготовки к публикации"
+        data = mod.validate_request(raw, today=date(2026, 7, 15))
+        plan = mod.resolve_plan(data, self.board())
+        self.assertEqual(plan["checklist"]["items"], mod.SOCIAL_NETWORKS)
+
+    def test_publication_card_without_mikhail_has_no_checklist(self):
+        raw = self.base()
+        raw.update({"column": "Передал для подготовки к публикации", "assignee": "Лев"})
+        data = mod.validate_request(raw, today=date(2026, 7, 15))
+        board = self.board()
+        board["workspace"]["members"].append({
+            "publicId": "on6j1e0xtqqs",
+            "status": "active",
+            "user": {"name": "Лев"},
+        })
+        plan = mod.resolve_plan(data, board)
+        self.assertIsNone(plan["checklist"])
+
+    def test_explicit_publication_checklist_override(self):
+        raw = self.base()
+        raw["publication_checklist"] = True
+        data = mod.validate_request(raw, today=date(2026, 7, 15))
         plan = mod.resolve_plan(data, self.board())
         self.assertEqual(plan["checklist"]["items"], mod.SOCIAL_NETWORKS)
 

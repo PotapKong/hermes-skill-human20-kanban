@@ -20,6 +20,10 @@ WORKSPACE_PUBLIC_ID = "295v3oe7lbi4"
 VIDEO_BOARD_PUBLIC_ID = "2ea096l0a4e3"
 VIDEO_BOARD_ALIAS = "ВИДЕО / МОНТАЖ"
 CHECKLIST_NAME = "Публикация Shorts/Reels"
+PUBLICATION_COLUMNS = {
+    "Передал для подготовки к публикации",
+    "Готово к публикации",
+}
 SOCIAL_NETWORKS = [
     "Instagram",
     "YouTube",
@@ -71,6 +75,17 @@ def normalize_assignees(value: Any) -> list[str]:
     return names
 
 
+def needs_publication_checklist(data: dict[str, Any], column_name: str) -> bool:
+    explicit = data.get("publication_checklist")
+    if explicit is not None:
+        return bool(explicit)
+    if data.get("card_type") != "reels":
+        return False
+    is_publication_stage = column_name.casefold() in {name.casefold() for name in PUBLICATION_COLUMNS}
+    is_for_mikhail = any(name.casefold() == "михаил" for name in data.get("assignee", []))
+    return is_publication_stage and is_for_mikhail
+
+
 def validate_request(data: dict[str, Any], today: date | None = None) -> dict[str, Any]:
     required = ("board", "title", "assignee", "due_date", "column")
     missing = [key for key in required if not str(data.get(key, "")).strip()]
@@ -87,6 +102,8 @@ def validate_request(data: dict[str, Any], today: date | None = None) -> dict[st
     labels = data.get("labels") or []
     if not isinstance(labels, list) or any(not isinstance(x, str) or not x.strip() for x in labels):
         raise ValueError("labels must be a list of non-empty names")
+    if data.get("publication_checklist") is not None and not isinstance(data["publication_checklist"], bool):
+        raise ValueError("publication_checklist must be true or false")
 
     new_label = data.get("new_label")
     if new_label is not None:
@@ -178,7 +195,11 @@ def resolve_plan(data: dict[str, Any], board: dict[str, Any]) -> dict[str, Any]:
         "description": build_description(data),
         "due_date": data["due_date"],
         "card_type": data["card_type"],
-        "checklist": {"name": CHECKLIST_NAME, "items": SOCIAL_NETWORKS} if reels else None,
+        "checklist": (
+            {"name": CHECKLIST_NAME, "items": SOCIAL_NETWORKS}
+            if needs_publication_checklist(data, selected_list["name"])
+            else None
+        ),
     }
 
 

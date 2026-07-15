@@ -6,7 +6,7 @@ Public Hermes skill for creating verified cards in any Human 2.0 team Kanban boa
 
 The agent first lists every live board and asks the user to choose one unless the request already identifies it unambiguously. It then refreshes the selected board and collects the column, one or more assignees, deadline, labels, and attachment choice.
 
-Reel/Short cards use the **ВИДЕО / МОНТАЖ** specialization: source-video URL, deadline within three days, cover option, and a seven-platform publication checklist.
+Reel/Short cards use the **ВИДЕО / МОНТАЖ** specialization: source-video URL, deadline within three days, and cover option. Cards in the `Монтаж` column have no publication checklist. The seven-platform checklist is added only at the publication stage when Михаил is assigned, or when the user explicitly requests it.
 
 ## Install
 
