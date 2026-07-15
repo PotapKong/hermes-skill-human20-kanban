@@ -67,6 +67,13 @@ class RulesTest(unittest.TestCase):
         selected = mod.resolve_board(boards, "4lbjrmbvdm15")
         self.assertEqual(selected["publicId"], "4lbjrmbvdm15")
 
+    def test_active_boards_endpoint_has_no_archived_query(self):
+        client = mod.KanClient(token="test-token")
+        calls = []
+        client.request = lambda method, path, payload=None: calls.append((method, path)) or []
+        client.boards()
+        self.assertEqual(calls, [("GET", f"/workspaces/{mod.WORKSPACE_PUBLIC_ID}/boards")])
+
     def test_three_day_reels_deadline_is_allowed(self):
         data = mod.validate_request(self.base(), today=date(2026, 7, 15))
         self.assertEqual(data["due_date"], "2026-07-18")

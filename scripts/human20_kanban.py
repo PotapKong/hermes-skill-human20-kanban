@@ -17,7 +17,7 @@ from typing import Any
 
 BASE_URL = "https://team.20.business/api/v1"
 WORKSPACE_PUBLIC_ID = "295v3oe7lbi4"
-VIDEO_BOARD_PUBLIC_ID = "jvyq1qdf0i1i"
+VIDEO_BOARD_PUBLIC_ID = "2ea096l0a4e3"
 VIDEO_BOARD_ALIAS = "ВИДЕО / МОНТАЖ"
 CHECKLIST_NAME = "Публикация Shorts/Reels"
 SOCIAL_NETWORKS = [
@@ -202,7 +202,9 @@ class KanClient:
             raise KanError(f"Kan API connection failed: {exc.reason}") from exc
 
     def boards(self) -> list[dict[str, Any]]:
-        return self.request("GET", f"/workspaces/{WORKSPACE_PUBLIC_ID}/boards?archived=false")
+        # Kan API quirk: adding archived=false currently returns archived boards.
+        # The endpoint without this query returns the active boards.
+        return self.request("GET", f"/workspaces/{WORKSPACE_PUBLIC_ID}/boards")
 
     def board(self, board_id: str) -> dict[str, Any]:
         return self.request("GET", f"/boards/{board_id}")

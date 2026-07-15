@@ -66,7 +66,7 @@ For every board:
 
 ## Reels specialization
 
-A Reel/Short/vertical-video request uses `card_type: reels` and board **ВИДЕО / МОНТАЖ** (live name: `Видео /Вертикальные ролики`). Ask for:
+A Reel/Short/vertical-video request uses `card_type: reels` and board **ВИДЕО / МОНТАЖ**. Ask for:
 
 - Reel title;
 - source-video URL from hosting or Telegram;
@@ -94,6 +94,7 @@ Generate a cover with an applicable cover/image skill or the configured image to
    ```bash
    python scripts/human20_kanban.py inspect
    ```
+   Use the endpoint without an `archived` query parameter. Kan currently returns archived boards when `?archived=false` is supplied.
 2. Ask the user to choose a board if it was not explicit.
 3. Read live details for the selected board:
    ```bash
