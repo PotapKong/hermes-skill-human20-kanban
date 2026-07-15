@@ -10,6 +10,9 @@ metadata:
     category: productivity
     created_by: agent
     requires_toolsets: [terminal]
+required_environment_variables:
+  - name: HUMAN20_KANBAN_API_KEY
+    prompt: Enter the Human 2.0 Kanban API key
 ---
 
 # Human 2.0 Team Kanban

@@ -27,6 +27,8 @@ if not skill.startswith("---\n"):
 for field in ("name:", "description:", "version:"):
     if field not in skill.split("---", 2)[1]:
         errors.append(f"frontmatter missing {field}")
+if "HUMAN20_KANBAN_API_KEY" not in skill.split("---", 2)[1]:
+    errors.append("frontmatter missing HUMAN20_KANBAN_API_KEY requirement")
 for network in ("Instagram", "YouTube", "ВК Видео", "Дзен", "RuTube", "TikTok", "Likee"):
     if network not in skill:
         errors.append(f"missing checklist network: {network}")
