@@ -34,7 +34,7 @@ for network in ("Instagram", "YouTube", "ВК Видео", "Дзен", "RuTube",
         errors.append(f"missing checklist network: {network}")
 for template_name in ("card-request.md", "reels-card-request.md"):
     template = (ROOT / "templates" / template_name).read_text(encoding="utf-8")
-    for heading in ("## Уже определено", "## Нужно подтвердить"):
+    for heading in ("✅ УЖЕ ОПРЕДЕЛЕНО", "❓ НУЖНО ПОДТВЕРДИТЬ"):
         if heading not in template:
             errors.append(f"{template_name} missing readable section: {heading}")
 
