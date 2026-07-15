@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Human 2.0 Kanban helper for verified Reel/Short card creation."""
+"""Human 2.0 Kanban helper for verified team card creation."""
 
 from __future__ import annotations
 
@@ -9,14 +9,16 @@ import mimetypes
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 BASE_URL = "https://team.20.business/api/v1"
-BOARD_PUBLIC_ID = "jvyq1qdf0i1i"
-BOARD_ALIAS = "ВИДЕО / МОНТАЖ"
+WORKSPACE_PUBLIC_ID = "295v3oe7lbi4"
+VIDEO_BOARD_PUBLIC_ID = "jvyq1qdf0i1i"
+VIDEO_BOARD_ALIAS = "ВИДЕО / МОНТАЖ"
 CHECKLIST_NAME = "Публикация Shorts/Reels"
 SOCIAL_NETWORKS = [
     "Instagram",
@@ -43,28 +45,34 @@ def parse_due_date(value: str) -> date:
         raise ValueError("due_date must start with YYYY-MM-DD") from exc
 
 
-def validate_due_date(value: str, today: date | None = None) -> date:
+def validate_due_date(value: str, today: date | None = None, max_days: int | None = None) -> date:
     due = parse_due_date(value)
     current = today or datetime.now(timezone.utc).date()
     delta = (due - current).days
     if delta < 0:
         raise ValueError("due_date cannot be in the past")
-    if delta > 3:
-        raise ValueError("due_date must be no later than three calendar days from creation")
+    if max_days is not None and delta > max_days:
+        raise ValueError(f"due_date must be no later than {max_days} calendar days from creation")
     return due
 
 
+def is_reels(data: dict[str, Any]) -> bool:
+    return str(data.get("card_type") or "").strip().casefold() in {"reels", "reel", "shorts", "short"}
+
+
 def validate_request(data: dict[str, Any], today: date | None = None) -> dict[str, Any]:
-    required = ("title", "video_url", "assignee", "due_date", "column")
+    required = ("board", "title", "assignee", "due_date", "column")
     missing = [key for key in required if not str(data.get(key, "")).strip()]
+    if is_reels(data) and not str(data.get("video_url", "")).strip():
+        missing.append("video_url")
     if missing:
         raise ValueError("missing required fields: " + ", ".join(missing))
 
-    video_url = str(data["video_url"]).strip()
-    if not video_url.startswith(("https://", "http://")):
+    video_url = str(data.get("video_url") or "").strip()
+    if video_url and not video_url.startswith(("https://", "http://")):
         raise ValueError("video_url must be an http(s) URL")
 
-    due = validate_due_date(str(data["due_date"]), today=today)
+    due = validate_due_date(str(data["due_date"]), today=today, max_days=3 if is_reels(data) else None)
     labels = data.get("labels") or []
     if not isinstance(labels, list) or any(not isinstance(x, str) or not x.strip() for x in labels):
         raise ValueError("labels must be a list of non-empty names")
@@ -89,12 +97,14 @@ def validate_request(data: dict[str, Any], today: date | None = None) -> dict[st
 
     return {
         **data,
+        "board": str(data["board"]).strip(),
         "title": str(data["title"]).strip(),
         "video_url": video_url,
         "assignee": str(data["assignee"]).strip(),
         "column": str(data["column"]).strip(),
         "due_date": due.isoformat(),
         "labels": [x.strip() for x in labels],
+        "card_type": "reels" if is_reels(data) else "general",
     }
 
 
@@ -111,6 +121,17 @@ def _pick_exact(items: list[dict[str, Any]], field: str, wanted: str, kind: str)
     raise ValueError(f"ambiguous {kind} '{wanted}'. Use an exact name")
 
 
+def resolve_board(boards: list[dict[str, Any]], wanted: str) -> dict[str, Any]:
+    by_id = [x for x in boards if str(x.get("publicId", "")).casefold() == wanted.casefold()]
+    if len(by_id) == 1:
+        return by_id[0]
+    if wanted.casefold() == VIDEO_BOARD_ALIAS.casefold():
+        matches = [x for x in boards if x.get("publicId") == VIDEO_BOARD_PUBLIC_ID]
+        if len(matches) == 1:
+            return matches[0]
+    return _pick_exact(boards, "name", wanted, "board")
+
+
 def resolve_plan(data: dict[str, Any], board: dict[str, Any]) -> dict[str, Any]:
     lists = board.get("allLists") or board.get("lists") or []
     selected_list = _pick_exact(lists, "name", data["column"], "column")
@@ -124,9 +145,10 @@ def resolve_plan(data: dict[str, Any], board: dict[str, Any]) -> dict[str, Any]:
     selected_member = _pick_exact(member_rows, "displayName", data["assignee"], "assignee")
 
     board_labels = board.get("labels", [])
-    resolved_labels = []
-    for name in data.get("labels", []):
-        resolved_labels.append(_pick_exact(board_labels, "name", name, "label"))
+    resolved_labels = [_pick_exact(board_labels, "name", name, "label") for name in data.get("labels", [])]
+    reels = data["card_type"] == "reels"
+    if reels and board.get("publicId") != VIDEO_BOARD_PUBLIC_ID:
+        raise ValueError(f"Reels cards must use board '{VIDEO_BOARD_ALIAS}'")
 
     return {
         "board": {"name": board.get("name"), "publicId": board.get("publicId")},
@@ -138,15 +160,20 @@ def resolve_plan(data: dict[str, Any], board: dict[str, Any]) -> dict[str, Any]:
         "title": data["title"],
         "description": build_description(data),
         "due_date": data["due_date"],
-        "checklist": {"name": CHECKLIST_NAME, "items": SOCIAL_NETWORKS},
+        "card_type": data["card_type"],
+        "checklist": {"name": CHECKLIST_NAME, "items": SOCIAL_NETWORKS} if reels else None,
     }
 
 
 def build_description(data: dict[str, Any]) -> str:
-    lines = [f"Исходное видео: {data['video_url']}"]
+    lines = []
+    if data.get("video_url"):
+        lines.append(f"Исходное видео: {data['video_url']}")
     extra = str(data.get("description") or "").strip()
     if extra:
-        lines.extend(["", extra])
+        if lines:
+            lines.append("")
+        lines.append(extra)
     return "\n".join(lines)
 
 
@@ -174,16 +201,19 @@ class KanClient:
         except urllib.error.URLError as exc:
             raise KanError(f"Kan API connection failed: {exc.reason}") from exc
 
-    def board(self) -> dict[str, Any]:
-        return self.request("GET", f"/boards/{BOARD_PUBLIC_ID}")
+    def boards(self) -> list[dict[str, Any]]:
+        return self.request("GET", f"/workspaces/{WORKSPACE_PUBLIC_ID}/boards?archived=false")
+
+    def board(self, board_id: str) -> dict[str, Any]:
+        return self.request("GET", f"/boards/{board_id}")
 
     def card(self, card_id: str) -> dict[str, Any]:
         return self.request("GET", f"/cards/{card_id}")
 
-    def create_label(self, name: str, colour: str) -> dict[str, Any]:
+    def create_label(self, board_id: str, name: str, colour: str) -> dict[str, Any]:
         return self.request("POST", "/labels", {
             "name": name,
-            "boardPublicId": BOARD_PUBLIC_ID,
+            "boardPublicId": board_id,
             "colourCode": colour,
         })
 
@@ -201,9 +231,7 @@ class KanClient:
     def create_checklist(self, card_id: str) -> dict[str, Any]:
         checklist = self.request("POST", f"/cards/{card_id}/checklists", {"name": CHECKLIST_NAME})
         checklist_id = checklist["publicId"]
-        items = []
-        for title in SOCIAL_NETWORKS:
-            items.append(self.request("POST", f"/checklists/{checklist_id}/items", {"title": title}))
+        items = [self.request("POST", f"/checklists/{checklist_id}/items", {"title": title}) for title in SOCIAL_NETWORKS]
         return {"publicId": checklist_id, "items": items}
 
     def upload_attachment(self, card_id: str, file_path: str) -> dict[str, Any]:
@@ -215,9 +243,7 @@ class KanClient:
             "contentType": content_type,
             "size": len(content),
         })
-        put = urllib.request.Request(
-            upload["url"], data=content, method="PUT", headers={"Content-Type": content_type}
-        )
+        put = urllib.request.Request(upload["url"], data=content, method="PUT", headers={"Content-Type": content_type})
         try:
             with urllib.request.urlopen(put, timeout=120) as response:
                 if response.status not in (200, 201, 204):
@@ -241,10 +267,40 @@ def public_card_url(card_id: str) -> str:
     return f"https://team.20.business/cards/{card_id}"
 
 
+def unique_names(items: list[dict[str, Any]]) -> list[str]:
+    seen = set()
+    result = []
+    for item in items:
+        name = str(item.get("name", "")).strip()
+        key = name.casefold()
+        if name and key not in seen:
+            seen.add(key)
+            result.append(name)
+    return result
+
+
 def inspect_command(client: KanClient) -> dict[str, Any]:
-    board = client.board()
+    boards = client.boards()
     return {
-        "board": {"name": board.get("name"), "publicId": board.get("publicId"), "alias": BOARD_ALIAS},
+        "workspacePublicId": WORKSPACE_PUBLIC_ID,
+        "boards": [
+            {
+                "name": board["name"],
+                "publicId": board["publicId"],
+                "columns": unique_names(board.get("lists", [])),
+                "labels": unique_names(board.get("labels", [])),
+                "alias": VIDEO_BOARD_ALIAS if board.get("publicId") == VIDEO_BOARD_PUBLIC_ID else None,
+            }
+            for board in boards
+        ],
+    }
+
+
+def inspect_board_command(client: KanClient, wanted: str) -> dict[str, Any]:
+    selected = resolve_board(client.boards(), wanted)
+    board = client.board(selected["publicId"])
+    return {
+        "board": {"name": board.get("name"), "publicId": board.get("publicId")},
         "columns": [{"name": x["name"], "publicId": x["publicId"]} for x in board.get("allLists", [])],
         "members": [
             {"name": (x.get("user") or {}).get("name"), "publicId": x.get("publicId"), "status": x.get("status")}
@@ -255,14 +311,20 @@ def inspect_command(client: KanClient) -> dict[str, Any]:
     }
 
 
-def create_reels(client: KanClient, data: dict[str, Any]) -> dict[str, Any]:
-    validated = validate_request(data)
-    board = client.board()
-    plan = resolve_plan(validated, board)
+def build_plan(client: KanClient, raw: dict[str, Any]) -> dict[str, Any]:
+    data = validate_request(raw)
+    selected = resolve_board(client.boards(), data["board"])
+    return resolve_plan(data, client.board(selected["publicId"]))
+
+
+def create_card_flow(client: KanClient, raw: dict[str, Any]) -> dict[str, Any]:
+    plan = build_plan(client, raw)
     label_ids = [x["publicId"] for x in plan["labels"]]
     created_label = None
     if plan.get("new_label"):
-        created_label = client.create_label(plan["new_label"]["name"], plan["new_label"]["colour"])
+        created_label = client.create_label(
+            plan["board"]["publicId"], plan["new_label"]["name"], plan["new_label"]["colour"]
+        )
         label_ids.append(created_label["publicId"])
 
     card = client.create_card(plan, label_ids)
@@ -274,7 +336,8 @@ def create_reels(client: KanClient, data: dict[str, Any]) -> dict[str, Any]:
         "createdLabel": created_label,
     }
     try:
-        result["checklist"] = client.create_checklist(card_id)
+        if plan.get("checklist"):
+            result["checklist"] = client.create_checklist(card_id)
         if plan.get("attachment_path"):
             result["attachment"] = client.upload_attachment(card_id, plan["attachment_path"])
         result["readBack"] = client.card(card_id)
@@ -288,11 +351,17 @@ def create_reels(client: KanClient, data: dict[str, Any]) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("inspect", help="List the live board columns, members, and labels")
-    plan_parser = sub.add_parser("plan-reels", help="Validate and print a read-only creation plan")
-    plan_parser.add_argument("--input", required=True)
-    create_parser = sub.add_parser("create-reels", help="Create and verify a Reel card")
-    create_parser.add_argument("--input", required=True)
+    sub.add_parser("inspect", help="List all live boards with columns and labels")
+    board_parser = sub.add_parser("inspect-board", help="List columns, members, and labels for one board")
+    board_parser.add_argument("--board", required=True)
+    for command, help_text in (
+        ("plan-card", "Validate and print a read-only card plan"),
+        ("plan-reels", "Backward-compatible alias for plan-card"),
+        ("create-card", "Create and verify a card"),
+        ("create-reels", "Backward-compatible alias for create-card"),
+    ):
+        command_parser = sub.add_parser(command, help=help_text)
+        command_parser.add_argument("--input", required=True)
     card_parser = sub.add_parser("card", help="Read a card back")
     card_parser.add_argument("card_id")
     args = parser.parse_args(argv)
@@ -301,11 +370,12 @@ def main(argv: list[str] | None = None) -> int:
         client = KanClient()
         if args.command == "inspect":
             result = inspect_command(client)
-        elif args.command == "plan-reels":
-            data = validate_request(load_input(args.input))
-            result = resolve_plan(data, client.board())
-        elif args.command == "create-reels":
-            result = create_reels(client, load_input(args.input))
+        elif args.command == "inspect-board":
+            result = inspect_board_command(client, args.board)
+        elif args.command in ("plan-card", "plan-reels"):
+            result = build_plan(client, load_input(args.input))
+        elif args.command in ("create-card", "create-reels"):
+            result = create_card_flow(client, load_input(args.input))
         else:
             result = client.card(args.card_id)
         print(json.dumps(result, ensure_ascii=False, indent=2))

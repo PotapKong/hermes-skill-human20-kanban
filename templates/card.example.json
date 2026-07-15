@@ -1,0 +1,13 @@
+{
+  "board": "Marketing",
+  "card_type": "general",
+  "title": "Название задачи",
+  "video_url": "",
+  "description": "Проверенный контекст задачи.",
+  "assignee": "Михаил",
+  "due_date": "YYYY-MM-DD",
+  "column": "В работе",
+  "labels": [],
+  "new_label": null,
+  "attachment_path": null
+}

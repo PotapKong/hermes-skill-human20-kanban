@@ -9,6 +9,8 @@ required = [
     "README.md",
     "LICENSE",
     "scripts/human20_kanban.py",
+    "templates/card-request.md",
+    "templates/card.example.json",
     "templates/reels-card-request.md",
     "templates/reels-card.example.json",
     "references/board.md",

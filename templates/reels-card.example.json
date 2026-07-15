@@ -1,4 +1,6 @@
 {
+  "board": "ВИДЕО / МОНТАЖ",
+  "card_type": "reels",
   "title": "Название рилса",
   "video_url": "https://example.com/source-video",
   "description": "Короткий контекст без выдуманных деталей.",

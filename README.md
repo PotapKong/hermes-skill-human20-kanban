@@ -1,18 +1,14 @@
 # hermes-skill-human20-kanban
 
-Public Hermes skill for creating structured Reel/Short cards in the Human 2.0 team Kanban.
+Public Hermes skill for creating verified cards in any Human 2.0 team Kanban board.
 
-## Current scope
+## Behavior
 
-Version `0.1.0` supports one board only:
+The agent first lists every live board and asks the user to choose one unless the request already identifies it unambiguously. It then refreshes the selected board and collects the column, assignee, deadline, labels, and attachment choice.
 
-- **ВИДЕО / МОНТАЖ** (live name: `Видео /Вертикальные ролики`)
-
-The skill makes the agent collect the destination column, assignee, deadline, labels, and attachment choice before creating a card. Reel cards receive a seven-platform publication checklist.
+Reel/Short cards use the **ВИДЕО / МОНТАЖ** specialization: source-video URL, deadline within three days, cover option, and a seven-platform publication checklist.
 
 ## Install
-
-Clone the repository so the skill keeps its templates, references, helper, and tests:
 
 ```bash
 git clone https://github.com/PotapKong/hermes-skill-human20-kanban.git
@@ -21,20 +17,17 @@ cp -R hermes-skill-human20-kanban ~/.hermes/skills/human20-kanban
 
 ## Authentication
 
-Set `HUMAN20_KANBAN_API_KEY` in the runtime environment. Do not commit the token.
+Set `HUMAN20_KANBAN_API_KEY` in the runtime environment. Never commit the token.
 
 ## Usage
 
 ```bash
 python scripts/human20_kanban.py inspect
-cp templates/reels-card.example.json /tmp/reels-card.json
-# Replace the example due_date with a real date within the next three days.
-python scripts/human20_kanban.py plan-reels --input /tmp/reels-card.json
-python scripts/human20_kanban.py create-reels --input /path/to/request.json
+python scripts/human20_kanban.py inspect-board --board "Marketing"
+python scripts/human20_kanban.py plan-card --input /path/to/request.json
+python scripts/human20_kanban.py create-card --input /path/to/request.json
 python scripts/human20_kanban.py card CARD_PUBLIC_ID
 ```
-
-`plan-reels` is read-only. `create-reels` creates the card, checklist, optional labels, and optional attachment, then reads the card back.
 
 ## Development
 
@@ -42,10 +35,6 @@ python scripts/human20_kanban.py card CARD_PUBLIC_ID
 python -m unittest discover -s tests -v
 python scripts/validate_skill.py
 ```
-
-## Security
-
-No credentials belong in this repository. The client redacts authorization data from errors and never prints the token.
 
 ## License
 

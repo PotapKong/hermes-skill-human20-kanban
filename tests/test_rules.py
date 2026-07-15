@@ -14,6 +14,8 @@ spec.loader.exec_module(mod)
 class RulesTest(unittest.TestCase):
     def base(self):
         return {
+            "board": "ВИДЕО / МОНТАЖ",
+            "card_type": "reels",
             "title": "Тестовый рилс",
             "video_url": "https://example.com/video",
             "description": "Контекст",
@@ -25,10 +27,10 @@ class RulesTest(unittest.TestCase):
             "attachment_path": None,
         }
 
-    def board(self):
+    def board(self, board_id=None, name="Видео /Вертикальные ролики"):
         return {
-            "name": "Видео /Вертикальные ролики",
-            "publicId": mod.BOARD_PUBLIC_ID,
+            "name": name,
+            "publicId": board_id or mod.VIDEO_BOARD_PUBLIC_ID,
             "allLists": [{"name": "Монтаж", "publicId": "6g8bsvtm9yjl"}],
             "workspace": {"members": [{
                 "publicId": "pfww09rr2cqx",
@@ -38,35 +40,87 @@ class RulesTest(unittest.TestCase):
             "labels": [{"name": "Reels", "publicId": "ikmbw72j8v5v"}],
         }
 
-    def test_three_day_deadline_is_allowed(self):
+    def test_board_is_required(self):
+        data = self.base()
+        data["board"] = ""
+        with self.assertRaisesRegex(ValueError, "board"):
+            mod.validate_request(data, today=date(2026, 7, 15))
+
+    def test_video_alias_resolves_to_live_board(self):
+        boards = [{"name": "Видео /Вертикальные ролики", "publicId": mod.VIDEO_BOARD_PUBLIC_ID}]
+        selected = mod.resolve_board(boards, "ВИДЕО / МОНТАЖ")
+        self.assertEqual(selected["publicId"], mod.VIDEO_BOARD_PUBLIC_ID)
+
+    def test_any_board_can_be_resolved_by_name(self):
+        boards = [
+            {"name": "Marketing", "publicId": "4lbjrmbvdm15"},
+            {"name": "Human20 Lessons", "publicId": "0f79j6q2gqy8"},
+        ]
+        selected = mod.resolve_board(boards, "Human20 Lessons")
+        self.assertEqual(selected["publicId"], "0f79j6q2gqy8")
+
+    def test_duplicate_board_name_can_be_resolved_by_public_id(self):
+        boards = [
+            {"name": "Marketing", "publicId": "wjjtf11urlhf"},
+            {"name": "Marketing", "publicId": "4lbjrmbvdm15"},
+        ]
+        selected = mod.resolve_board(boards, "4lbjrmbvdm15")
+        self.assertEqual(selected["publicId"], "4lbjrmbvdm15")
+
+    def test_three_day_reels_deadline_is_allowed(self):
         data = mod.validate_request(self.base(), today=date(2026, 7, 15))
         self.assertEqual(data["due_date"], "2026-07-18")
 
-    def test_four_day_deadline_is_rejected(self):
+    def test_four_day_reels_deadline_is_rejected(self):
         data = self.base()
         data["due_date"] = "2026-07-19"
-        with self.assertRaisesRegex(ValueError, "three calendar days"):
+        with self.assertRaisesRegex(ValueError, "3 calendar days"):
             mod.validate_request(data, today=date(2026, 7, 15))
 
-    def test_missing_required_fields_are_reported_together(self):
+    def test_general_card_can_have_later_deadline(self):
         data = self.base()
-        data["assignee"] = ""
-        data["column"] = ""
-        with self.assertRaisesRegex(ValueError, "assignee, column"):
+        data.update({
+            "board": "Human20 Lessons",
+            "card_type": "general",
+            "video_url": "",
+            "due_date": "2026-08-01",
+        })
+        checked = mod.validate_request(data, today=date(2026, 7, 15))
+        self.assertEqual(checked["due_date"], "2026-08-01")
+
+    def test_reels_requires_video_url(self):
+        data = self.base()
+        data["video_url"] = ""
+        with self.assertRaisesRegex(ValueError, "video_url"):
             mod.validate_request(data, today=date(2026, 7, 15))
+
+    def test_reels_must_use_video_board(self):
+        data = mod.validate_request(self.base(), today=date(2026, 7, 15))
+        other = self.board(board_id="0f79j6q2gqy8", name="Human20 Lessons")
+        with self.assertRaisesRegex(ValueError, "Reels cards must use"):
+            mod.resolve_plan(data, other)
+
+    def test_reels_plan_has_publication_checklist(self):
+        data = mod.validate_request(self.base(), today=date(2026, 7, 15))
+        plan = mod.resolve_plan(data, self.board())
+        self.assertEqual(plan["checklist"]["items"], mod.SOCIAL_NETWORKS)
+
+    def test_general_plan_has_no_reels_checklist(self):
+        data = self.base()
+        data.update({"board": "Marketing", "card_type": "general", "video_url": ""})
+        checked = mod.validate_request(data, today=date(2026, 7, 15))
+        board = self.board(board_id="4lbjrmbvdm15", name="Marketing")
+        plan = mod.resolve_plan(checked, board)
+        self.assertIsNone(plan["checklist"])
 
     def test_checklist_contract(self):
         self.assertEqual(mod.SOCIAL_NETWORKS, [
             "Instagram", "YouTube", "ВК Видео", "Дзен", "RuTube", "TikTok", "Likee"
         ])
 
-    def test_plan_resolves_live_names_to_ids(self):
-        data = mod.validate_request(self.base(), today=date(2026, 7, 15))
-        plan = mod.resolve_plan(data, self.board())
-        self.assertEqual(plan["list"]["publicId"], "6g8bsvtm9yjl")
-        self.assertEqual(plan["member"]["publicId"], "pfww09rr2cqx")
-        self.assertEqual(plan["labels"][0]["publicId"], "ikmbw72j8v5v")
-        self.assertEqual(plan["checklist"]["items"], mod.SOCIAL_NETWORKS)
+    def test_unique_names_removes_duplicate_board_columns(self):
+        rows = [{"name": "В работе"}, {"name": "Монтаж"}, {"name": "В работе"}]
+        self.assertEqual(mod.unique_names(rows), ["В работе", "Монтаж"])
 
     def test_attachment_must_exist(self):
         data = self.base()

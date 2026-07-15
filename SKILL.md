@@ -1,12 +1,12 @@
 ---
 name: human20-kanban
-version: 0.1.0
-description: "Create verified Human 2.0 Reels cards in the team Kanban."
+version: 0.2.0
+description: "Create Human 2.0 Kanban cards with verified routing."
 author: Михаил + Hughie
 license: MIT
 metadata:
   hermes:
-    tags: [human20, kanban, reels, video, tasks]
+    tags: [human20, kanban, cards, tasks, reels, video]
     category: productivity
     created_by: agent
     requires_toolsets: [terminal]
@@ -14,111 +14,120 @@ metadata:
 
 # Human 2.0 Team Kanban
 
-## Scope
+## When to use
 
-Use this skill when the user asks to create a task card for a Reel, Short, or vertical video in the Human 2.0 team Kanban at `https://team.20.business`.
+Load this skill when the user asks to create, prepare, publish, or update a task/card in the Human 2.0 team Kanban at `https://team.20.business`. Natural triggers include combinations such as:
 
-Version `0.1.0` supports exactly one board:
+- «создай карточку Человек 2.0»;
+- «поставь задачу команде Human 2.0»;
+- «добавь в канбан Human20»;
+- «создай карточку для рилса»;
+- explicit `/human20-kanban`.
 
-- user-facing alias: **ВИДЕО / МОНТАЖ**;
-- live board: **Видео /Вертикальные ролики**;
-- board public ID: `jvyq1qdf0i1i`.
+Do not wait for an exact phrase. Match the user's intent plus Human 2.0/team-Kanban context.
 
-Do not route other Human 2.0 tasks with this version. Say that the requested board is outside the current scope and ask whether the skill should be extended.
+## Mandatory routing
 
-## Required data before creation
+Before creating any card:
 
-Resolve every item before creating the card:
+1. Refresh all live boards with `inspect`.
+2. If the user did not name an unambiguous board, show every available board and ask which one to use. When names repeat, include the public ID and columns so the user can distinguish them.
+3. After board selection, refresh that board with `inspect-board`.
+4. Ask for the destination column, assignee, deadline, labels, and attachment choice using live options.
+5. Ask once for all missing fields. Preserve fields already supplied.
 
-1. Reel title from the user's request.
-2. Source-video URL: hosting URL or Telegram message URL.
-3. Assignee from the live workspace member list.
-4. Due date. It must be today through three calendar days from creation, inclusive.
-5. Destination column on the supported board.
-6. Labels:
-   - ask whether to attach an existing label;
-   - ask whether a new label is needed;
-   - create a new label only after explicit approval of its name and colour.
-7. Attachment:
-   - ask whether a file must be attached;
-   - for a Reel card, offer to generate and attach a cover;
-   - never claim an attachment exists until the generated/local file is uploaded and read back from the card.
+Never guess a board, column, assignee, label, deadline, or attachment requirement.
 
-If several fields are missing, ask once using the compact template in `templates/reels-card-request.md`. Do not interrogate the user one field at a time. If the user already supplied a field, preserve it and ask only for missing or ambiguous data.
+## Required card data
 
-Always refresh columns, members, and labels from the live board before presenting options. IDs in `references/board.md` are fallbacks, not proof of current state.
+Resolve these fields before creation:
 
-## Card contract
+- board;
+- title;
+- useful description/context;
+- destination column;
+- assignee from the live member list;
+- deadline;
+- labels: existing, approved new label, or explicitly no labels;
+- attachment: local file, generated asset, or explicitly no attachment.
 
-Create the card only when all required choices are resolved.
+Use `templates/card-request.md` when several fields are missing.
 
-- **Title:** the Reel title, concise and recognizable.
-- **Description:** source-video URL plus useful context from the request. Do not invent a script, publication date, or production status.
-- **Assignee:** at least one confirmed workspace member.
-- **Due date:** no later than three calendar days from creation.
-- **Column:** explicitly confirmed by the user.
-- **Position:** end of the selected column unless the user asks otherwise.
-- **Checklist name:** `Публикация Shorts/Reels`.
-- **Checklist items, exactly in this order:**
-  1. Instagram
-  2. YouTube
-  3. ВК Видео
-  4. Дзен
-  5. RuTube
-  6. TikTok
-  7. Likee
-- **Cover:** generate and attach when requested/confirmed. Use an applicable cover/image skill if available; otherwise use the configured image-generation tool. Verify the local image before upload.
+## Generic card contract
+
+For every board:
+
+- use the confirmed board and column;
+- add at least one confirmed assignee;
+- set the confirmed deadline;
+- create a new label only after explicit approval of its name and colour;
+- upload an attachment only when requested and verify it by reading the card back;
+- place the card at the end of the chosen column unless the user asks otherwise.
+
+## Reels specialization
+
+A Reel/Short/vertical-video request uses `card_type: reels` and board **ВИДЕО / МОНТАЖ** (live name: `Видео /Вертикальные ролики`). Ask for:
+
+- Reel title;
+- source-video URL from hosting or Telegram;
+- assignee;
+- deadline no later than three calendar days from creation;
+- destination column;
+- labels and whether a new label is needed;
+- attachment choice, including an offer to generate and attach a cover.
+
+Every Reels card receives checklist `Публикация Shorts/Reels` with exactly:
+
+1. Instagram
+2. YouTube
+3. ВК Видео
+4. Дзен
+5. RuTube
+6. TikTok
+7. Likee
+
+Generate a cover with an applicable cover/image skill or the configured image tool only after the user requests it. Verify the local file, upload it, then verify the attachment on the card.
 
 ## Procedure
 
-1. Confirm the request is a Reel/Short/vertical-video task for the supported board.
-2. Run:
+1. List all boards:
    ```bash
    python scripts/human20_kanban.py inspect
    ```
-3. Collect missing data with the bundled request template.
-4. Build a JSON payload based on `templates/reels-card.example.json`.
-5. Validate without writing:
+2. Ask the user to choose a board if it was not explicit.
+3. Read live details for the selected board:
    ```bash
-   python scripts/human20_kanban.py plan-reels --input /path/to/request.json
+   python scripts/human20_kanban.py inspect-board --board "BOARD NAME"
    ```
-6. If a cover was requested, generate it and set `attachment_path` to the verified local file.
-7. Create the card:
+4. Collect missing data with `templates/card-request.md` or `templates/reels-card-request.md`.
+5. Build JSON based on `templates/card.example.json`.
+6. Validate without writing:
    ```bash
-   python scripts/human20_kanban.py create-reels --input /path/to/request.json
+   python scripts/human20_kanban.py plan-card --input /path/to/request.json
    ```
-8. Read the card back with the returned public ID:
+7. Show the resolved plan when testing or when the request remains ambiguous.
+8. Create:
+   ```bash
+   python scripts/human20_kanban.py create-card --input /path/to/request.json
+   ```
+9. Read back:
    ```bash
    python scripts/human20_kanban.py card CARD_PUBLIC_ID
    ```
-9. Report: card title, board, column, assignee, deadline, labels, checklist status, attachment status, public ID, and URL.
+10. Report board, column, title, assignee, deadline, labels, checklist, attachment, public ID, and URL.
 
 ## Authentication
 
-The helper reads the API token from `HUMAN20_KANBAN_API_KEY`. Never put the token in prompts, repository files, command arguments, screenshots, logs, or generated documents.
-
-Example local setup, performed by the human/operator outside chat history:
-
-```bash
-export HUMAN20_KANBAN_API_KEY='...'
-```
+The helper reads `HUMAN20_KANBAN_API_KEY`. Never put the token in prompts, repository files, command arguments, screenshots, logs, or generated documents.
 
 ## Safety
 
-- Creation is allowed after the card contract is complete.
+- Creating a fully specified card is allowed.
 - Ask before creating a new label because it changes board taxonomy.
-- Ask before deletion or archiving.
-- Never guess a member, column, label, deadline, or attachment requirement.
-- Never silently move an existing card.
-- If card creation succeeds but checklist or attachment creation fails, report partial success with the card public ID; do not create a duplicate card on retry.
+- Ask before deletion, archive, or moving an existing card.
+- The helper intentionally exposes no delete/archive command.
+- If the card is created but a checklist or attachment fails, report partial success with the card public ID. Never create a duplicate on retry.
 
 ## Verification
 
-A task is complete only after a live read-back confirms:
-
-- correct title and destination list;
-- selected member attached;
-- due date within the three-day rule;
-- checklist exists with all seven networks;
-- requested labels exist on the card;
-- requested cover appears in attachments.
+Completion requires a live card read-back confirming the selected board/list routing, title, assignee, deadline, labels, requested checklist, and requested attachments.
